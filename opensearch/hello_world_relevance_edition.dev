@@ -153,6 +153,153 @@ POST _scripts/hello_world_template
   }
 }
 
+# Create the Search Template with LTR
+POST _scripts/hello_world_w_ltr_template
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "size": "10",
+      "_source": ["sku", "name", "shortDescription"],
+      "query": {
+        "function_score": {
+          "query": {
+            "bool": {
+              "must": [
+              ],
+              "should": [
+                {
+                  "match": {
+                    "name": {
+                      "query": "{{user_query}}",
+                      "fuzziness": "1",
+                      "prefix_length": 2,
+                      "boost": 0.01
+                    }
+                  }
+                },
+                {
+                  "match_phrase": {
+                    "name.hyphens": {
+                      "query": "{{user_query}}",
+                      "slop": 1,
+                      "boost": 50
+                    }
+                  }
+                },
+                {
+                  "multi_match": {
+                    "query": "{{user_query}}",
+                    "type": "phrase",
+                    "slop": "6",
+                    "minimum_should_match": "2<75%",
+                    "fields": [
+                      "name^10",
+                      "name.hyphens^10",
+                      "shortDescription^5",
+                      "longDescription^5",
+                      "department^0.5",
+                      "sku",
+                      "manufacturer",
+                      "features",
+                      "categoryPath"
+                    ]
+                  }
+                },
+                {
+                  "terms": {
+                    "sku": ["\"{{#user_query_split}}\",\"{{/user_query_split}}\""],
+                    "boost": 50.0
+                  }
+                },
+                {
+                  "match": {
+                    "name.hyphens": {
+                      "query": "{{user_query}}",
+                      "operator": "OR",
+                      "minimum_should_match": "2<75%"
+                    }
+                  }
+                }
+              ],
+              "minimum_should_match": 1
+            }
+          },
+          "boost_mode": "multiply",
+          "score_mode": "sum",
+          "functions": [
+            {
+              "filter": {
+                "exists": {
+                  "field": "salesRankShortTerm"
+                }
+              },
+              "gauss": {
+                "salesRankShortTerm": {
+                  "origin": "1.0",
+                  "scale": "100"
+                }
+              }
+            },
+            {
+              "filter": {
+                "exists": {
+                  "field": "salesRankMediumTerm"
+                }
+              },
+              "gauss": {
+                "salesRankMediumTerm": {
+                  "origin": "1.0",
+                  "scale": "1000"
+                }
+              }
+            },
+            {
+              "filter": {
+                "exists": {
+                  "field": "salesRankLongTerm"
+                }
+              },
+              "gauss": {
+                "salesRankLongTerm": {
+                  "origin": "1.0",
+                  "scale": "1000"
+                }
+              }
+            },
+            {
+              "script_score": {
+                "script": "0.0001"
+              }
+            }
+          ]
+        }
+      },
+      "rescore": {
+        "window_size": 500,
+        "query": {
+          "rescore_query": {
+            "sltr": {
+              "params": {
+                "keywords": "{{user_query}}"
+              },
+              "model": "ltr_model",
+              "store": "week1"
+            }
+          },
+          "score_mode": "total",
+          "query_weight": 0.0,
+          "rescore_query_weight": 2.0
+        }
+      }
+    }
+  },
+  "params": {
+    "user_query": "",
+    "user_query_split": []
+  }
+}
+
 
 # Queries:
 
