@@ -101,7 +101,9 @@ def create_feature_log_query(query, doc_ids, click_prior_query, featureset_name,
                     "named_query": "logged_featureset"
                 }
             }
-        }
+        },
+        "fields": ["sku", "name"],
+        "_source": False
     }
 
 
