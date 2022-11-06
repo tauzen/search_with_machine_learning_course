@@ -1,4 +1,5 @@
 import argparse
+from collections import Counter
 import multiprocessing
 import glob
 from tqdm import tqdm
@@ -62,8 +63,10 @@ if __name__ == '__main__':
     files = glob.glob(f'{directory}/*.xml')
     print("Writing results to %s" % output_file)
     with multiprocessing.Pool() as p:
-        all_labels = tqdm(p.imap(_label_filename, files), total=len(files))
+        all_labels = list(tqdm(p.imap(_label_filename, files), total=len(files)))
+        categories_counter = Counter(cat for label_list in all_labels for cat, _ in label_list)
         with open(output_file, 'w') as output:
             for label_list in all_labels:
                 for (cat, name) in label_list:
-                    output.write(f'__label__{cat} {name}\n')
+                    if categories_counter[cat] >= min_products:
+                        output.write(f'__label__{cat} {name}\n')
