@@ -12,6 +12,7 @@
         "synonym": {
           "tokenizer": "whitespace",
           "filter": [
+            "lowercase",
             "stemmer",
             "synonym"
           ]
@@ -260,7 +261,7 @@
           "suggest": {
             "type": "completion"
           },
-          "synonym": {
+          "synonyms": {
             "type": "text",
             "analyzer": "synonym"
           }
