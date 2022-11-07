@@ -12,3 +12,9 @@ model.test("cooking.test")
 # Retrain with 25 epochs, bigrams, and learning rate of 1.0 and evaluate again
 model = fasttext.train_supervised(input="cooking.train", lr=1.0, epoch=25, wordNgrams=2)
 model.test("cooking.test")
+
+# save model to file
+model.save_model("cooking_classifier.bin")
+
+# load model from file
+model = fasttext.load_model("cooking_classifier.bin")
