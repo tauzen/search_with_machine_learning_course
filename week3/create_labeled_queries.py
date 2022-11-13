@@ -5,6 +5,9 @@ import pandas as pd
 import numpy as np
 import csv
 
+import unicodedata
+import re
+
 # Useful if you want to perform stemming.
 import nltk
 stemmer = nltk.stem.PorterStemmer()
@@ -48,7 +51,25 @@ parents_df = pd.DataFrame(list(zip(categories, parents)), columns =['category', 
 queries_df = pd.read_csv(queries_file_name)[['category', 'query']]
 queries_df = queries_df[queries_df['category'].isin(categories)]
 
-# IMPLEMENT ME: Convert queries to lowercase, and optionally implement other normalization, like stemming.
+# Convert queries to lowercase, and optionally implement other normalization, like stemming.
+def unicode_normalization(s: str) -> str:
+    nfkd_form = unicodedata.normalize("NFKD", s)
+    normalized_s = "".join(filter(lambda c: not unicodedata.combining(c), nfkd_form))
+    return normalized_s
+
+special_characters = re.compile(r"[^\w]")
+whitespace_chain = re.compile(r"\s+")
+
+def normalize_query(s: str) -> str:
+    s = s.lower()
+    s = unicode_normalization(s)
+    s = re.sub(special_characters, " ", s)
+    s = re.sub(whitespace_chain, " ", s)
+    tokens = s.strip().split(" ")
+    stemmed = " ".join(map(lambda token: stemmer.stem(token), tokens))
+    return stemmed
+
+queries_df["query"] = queries_df["query"].apply(lambda s: normalize_query(s))
 
 # IMPLEMENT ME: Roll up categories to ancestors to satisfy the minimum number of queries per category.
 
