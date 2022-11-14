@@ -12,6 +12,16 @@ import pandas as pd
 import fileinput
 import logging
 
+import re
+import unicodedata
+import nltk
+import fasttext
+
+import typing
+
+
+stemmer = nltk.stem.PorterStemmer()
+query_classification_model = fasttext.load_model("../week3/week3_model_tweaked_params_train_2.bin")
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -186,11 +196,65 @@ def create_query(user_query, click_prior_query, filters, sort="_score", sortDir=
     return query_obj
 
 
+def unicode_normalization(s: str) -> str:
+    nfkd_form = unicodedata.normalize("NFKD", s)
+    normalized_s = "".join(filter(lambda c: not unicodedata.combining(c), nfkd_form))
+    return normalized_s
+
+
+special_characters = re.compile(r"[^\w]")
+whitespace_chain = re.compile(r"\s+")
+
+
+def normalize_query(s: str) -> str:
+    s = s.lower()
+    s = unicode_normalization(s)
+    s = re.sub(special_characters, " ", s)
+    s = re.sub(whitespace_chain, " ", s)
+    tokens = s.strip().split(" ")
+    stemmed = " ".join(map(lambda token: stemmer.stem(token), tokens))
+    return stemmed
+
+
+def get_categories_from_classifier(query: str) -> typing.List[str]:
+    min_score = 0.5
+    category_limit = 5
+    normalized_query = normalize_query(query)
+
+    labels, scores = query_classification_model.predict(normalized_query, category_limit)
+
+    sum_score = 0
+    labels_above_score = []
+    for category_label, score in zip(labels, scores):
+        sum_score += score
+        labels_above_score.append(category_label)
+
+        if sum_score >= min_score:
+            break
+
+    print(f"predictions: {sum_score}, {labels_above_score}")
+    return [category_label.removeprefix("__label__") for category_label in labels_above_score]
+
+
+def create_category_filter(categories: typing.List[str]) -> typing.Optional[typing.Dict]:
+    if not categories:
+        return None
+
+    return {
+        "terms": {
+            "categoryPathIds": categories
+        }
+    }
+
+
 def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc"):
     #### W3: classify the query
+    predicted_categories = get_categories_from_classifier(user_query)
+    category_filter = create_category_filter(predicted_categories)
+
     #### W3: create filters and boosts
     # Note: you may also want to modify the `create_query` method above
-    query_obj = create_query(user_query, click_prior_query=None, filters=None, sort=sort, sortDir=sortDir, source=["name", "shortDescription"])
+    query_obj = create_query(user_query, click_prior_query=None, filters=category_filter, sort=sort, sortDir=sortDir, source=["name", "shortDescription"])
     logging.info(query_obj)
     response = client.search(query_obj, index=index)
     if response and response['hits']['hits'] and len(response['hits']['hits']) > 0:
