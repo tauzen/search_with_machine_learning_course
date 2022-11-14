@@ -71,7 +71,39 @@ def normalize_query(s: str) -> str:
 
 queries_df["query"] = queries_df["query"].apply(lambda s: normalize_query(s))
 
-# IMPLEMENT ME: Roll up categories to ancestors to satisfy the minimum number of queries per category.
+# Roll up categories to ancestors to satisfy the minimum number of queries per category.
+def get_categories_with_counts(df: pd.DataFrame) -> pd.DataFrame:
+    return (
+        df.groupby(['category'])
+        .size()
+        .reset_index(name="query_count")
+        .sort_values("query_count", ascending=True)
+    )
+
+def get_categories_below_threshold(df: pd.DataFrame, threshold: int) -> pd.DataFrame:
+    df = get_categories_with_counts(df)
+    return df[df["query_count"] < threshold].drop("query_count", axis=1)
+
+def categories_below_threshold_present(df: pd.DataFrame, threshold: int) -> bool:
+    df = get_categories_with_counts(df)
+    return len(df[df["query_count"] < threshold].index) > 0 and len(df.index) > 1
+
+def rollup_categories(queries_df: pd.DataFrame, parents_df: pd.DataFrame, threshold: int) -> pd.DataFrame:
+    queries = queries_df.copy(deep=True)
+
+    while categories_below_threshold_present(queries, threshold):
+        categories_below_threshold = get_categories_below_threshold(queries, threshold)
+        category_parents = categories_below_threshold.merge(parents_df, how="left", on="category")
+
+        queries = queries.merge(category_parents, how="left", on="category")
+        swap = (queries["parent"].notnull())
+        queries.loc[swap, ["category", "parent"]] = queries.loc[swap, ["parent", "category"]].values
+
+        queries = queries.drop("parent", axis=1)
+
+    return queries
+
+queries_df = rollup_categories(queries_df, parents_df, min_queries)
 
 # Create labels in fastText format.
 queries_df['label'] = '__label__' + queries_df['category']
