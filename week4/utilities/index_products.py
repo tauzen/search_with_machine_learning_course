@@ -107,6 +107,7 @@ def get_opensearch():
 def index_file(file, index_name, reduced=False):
     logger.info("Creating Model")
     model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    print(model)
     
     logger.info("Ready to index")
 
@@ -137,7 +138,7 @@ def index_file(file, index_name, reduced=False):
         if reduced and ('categoryPath' not in doc or 'Best Buy' not in doc['categoryPath'] or 'Movies & Music' in doc['categoryPath']):
             continue
         docs.append({'_index': index_name, '_id':doc['sku'][0], '_source' : doc})
-        names.append(doc['name'])
+        names.append(doc['name'][0])
         docs_indexed += 1
         if docs_indexed % 200 == 0:
             logger.info(f"Computing embeddings for {len(names)} doc names")
